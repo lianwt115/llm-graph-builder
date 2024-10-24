@@ -22,7 +22,8 @@ def get_llm(model: str):
     """Retrieve the specified language model based on the model name."""
     env_key = "LLM_MODEL_CONFIG_" + model
     env_value = os.environ.get(env_key)
-    logging.info("Model: {}".format(env_key))
+    #logging.info("Model: {}".format(env_key))
+    logging.info("所选模型: {}".format(env_key))
     if "gemini" in model:
         credentials, project_id = google.auth.default()
         model_name = MODEL_VERSIONS[model]
@@ -107,13 +108,15 @@ def get_llm(model: str):
             temperature=0,
         )
             
-    logging.info(f"Model created - Model Version: {model}")
+    #logging.info(f"Model created - Model Version: {model}")
+    logging.info(f"模型创建 - 模型名称: {model}")
     return llm, model_name
 
 
 def get_combined_chunks(chunkId_chunkDoc_list):
     chunks_to_combine = int(os.environ.get("NUMBER_OF_CHUNKS_TO_COMBINE"))
-    logging.info(f"Combining {chunks_to_combine} chunks before sending request to LLM")
+    #logging.info(f"Combining {chunks_to_combine} chunks before sending request to LLM")
+    logging.info(f"合并: {chunks_to_combine} 分块 ,发送给llm之前")
     combined_chunk_document_list = []
     combined_chunks_page_content = [
         "".join(
@@ -140,6 +143,7 @@ def get_combined_chunks(chunkId_chunkDoc_list):
     return combined_chunk_document_list
 
 
+#
 def get_graph_document_list(
     llm, combined_chunk_document_list, allowedNodes, allowedRelationship
 ):
@@ -153,12 +157,16 @@ def get_graph_document_list(
             node_properties = False
         else:
             node_properties = ["description"]
+
+
         llm_transformer = LLMGraphTransformer(
             llm=llm,
             node_properties=node_properties,
             allowed_nodes=allowedNodes,
             allowed_relationships=allowedRelationship,
         )
+
+
     with ThreadPoolExecutor(max_workers=10) as executor:
         for chunk in combined_chunk_document_list:
             chunk_doc = Document(
@@ -174,10 +182,12 @@ def get_graph_document_list(
 
     return graph_document_list
 
-
+#
 def get_graph_from_llm(model, chunkId_chunkDoc_list, allowedNodes, allowedRelationship):
-    
+    #获取模型和模型名称
+    logging.info("图谱文档:提取模型开始")
     llm, model_name = get_llm(model)
+    logging.info("图谱文档:提取取模结束")
     combined_chunk_document_list = get_combined_chunks(chunkId_chunkDoc_list)
     
     if  allowedNodes is None or allowedNodes=="":
@@ -188,8 +198,9 @@ def get_graph_from_llm(model, chunkId_chunkDoc_list, allowedNodes, allowedRelati
         allowedRelationship=[]
     else:
         allowedRelationship = allowedRelationship.split(',')
-        
+    logging.info("图谱文档:模型生成图谱开始")
     graph_document_list = get_graph_document_list(
         llm, combined_chunk_document_list, allowedNodes, allowedRelationship
     )
+    logging.info("图谱文档:模型生成图谱结束")
     return graph_document_list

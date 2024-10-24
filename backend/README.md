@@ -23,6 +23,7 @@ Follow these steps to set up and run the project locally:
 ## Run backend project using unicorn
 Run the server:
 > uvicorn score:app --reload
+>uvicorn score:app --reload --host 0.0.0.0 --port 8000
 
 ## Run project using docker
 ## prerequisite 

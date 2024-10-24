@@ -182,19 +182,23 @@ def create_source_node_graph_url_wikipedia(graph, model, wiki_query, source_type
       success_count+=1
       lst_file_name.append({'fileName':obj_source_node.file_name,'fileSize':obj_source_node.file_size,'url':obj_source_node.url, 'language':obj_source_node.language, 'status':'Success'})
     return lst_file_name,success_count,failed_count
-    
+
+#程序执行流程:2本地文件分解分析 ----------------222222222222222222222-------------
 def extract_graph_from_file_local_file(uri, userName, password, database, model, merged_file_path, fileName, allowedNodes, allowedRelationship, retry_condition):
 
-  logging.info(f'Process file name :{fileName}')
+  #logging.info(f'Process file name :{fileName}')
+  logging.info(f'文件名:{fileName}')
   if retry_condition is None:
     gcs_file_cache = os.environ.get('GCS_FILE_CACHE')
     if gcs_file_cache == 'True':
       folder_name = create_gcs_bucket_folder_name_hashed(uri, fileName)
       file_name, pages = get_documents_from_gcs( PROJECT_ID, BUCKET_UPLOAD, folder_name, fileName)
     else:
+    #本地文件
       file_name, pages, file_extension = get_documents_from_file_by_path(merged_file_path,fileName)
     if pages==None or len(pages)==0:
       raise Exception(f'File content is not available for file : {file_name}')
+
     return processing_source(uri, userName, password, database, model, file_name, pages, allowedNodes, allowedRelationship, True, merged_file_path)
   else:
     return processing_source(uri, userName, password, database, model, fileName, [], allowedNodes, allowedRelationship, True, merged_file_path, retry_condition)
@@ -250,7 +254,8 @@ def extract_graph_from_file_gcs(uri, userName, password, database, model, gcs_pr
     return processing_source(uri, userName, password, database, model, file_name, pages, allowedNodes, allowedRelationship)
   else:
     return processing_source(uri, userName, password, database, model, file_name, [], allowedNodes, allowedRelationship, retry_condition=retry_condition)
-  
+
+#程序执行流程:4本地文件分析 ----------------222222222222222222222-------------
 def processing_source(uri, userName, password, database, model, file_name, pages, allowedNodes, allowedRelationship, is_uploaded_from_local=None, merged_file_path=None, retry_condition=None):
   """
    Extracts a Neo4jGraph from a PDF file based on the model.
@@ -267,6 +272,7 @@ def processing_source(uri, userName, password, database, model, file_name, pages
    	 Json response to API with fileName, nodeCount, relationshipCount, processingTime, 
      status and model as attributes.
   """
+  logging.info(f'processing_source:开始处理pdf文档')
   start_time = datetime.now()
   graph = create_graph_database_connection(uri, userName, password, database)
   graphDb_data_Access = graphDBdataAccess(graph)
@@ -295,15 +301,18 @@ def processing_source(uri, userName, password, database, model, file_name, pages
       logging.info(obj_source_node)
       graphDb_data_Access.update_source_node(obj_source_node)
       
-      logging.info('Update the status as Processing')
+     # logging.info('Update the status as Processing')
+      logging.info('状态更新:处理中')
+
       update_graph_chunk_processed = int(os.environ.get('UPDATE_GRAPH_CHUNKS_PROCESSED'))
       # selected_chunks = []
       is_cancelled_status = False
       job_status = "Completed"
-
+     #开始分段解析
       for i in range(0, len(chunkId_chunkDoc_list), update_graph_chunk_processed):
         select_chunks_upto = i+update_graph_chunk_processed
-        logging.info(f'Selected Chunks upto: {select_chunks_upto}')
+        #logging.info(f'Selected Chunks upto: {select_chunks_upto}')
+        logging.info(f'分块处理序号: {select_chunks_upto}')
         if len(chunkId_chunkDoc_list) <= select_chunks_upto:
           select_chunks_upto = len(chunkId_chunkDoc_list)
         selected_chunks = chunkId_chunkDoc_list[i:select_chunks_upto]
@@ -313,9 +322,11 @@ def processing_source(uri, userName, password, database, model, file_name, pages
         logging.info(f"Value of is_cancelled : {result[0]['is_cancelled']}")
         if bool(is_cancelled_status) == True:
           job_status = "Cancelled"
-          logging.info('Exit from running loop of processing file')
+          #logging.info('Exit from running loop of processing file')
+          logging.info('退出:文件处理')
           break
         else:
+          #解析关键
           node_count,rel_count = processing_chunks(selected_chunks,graph,uri, userName, password, database,file_name,model,allowedNodes,allowedRelationship,node_count, rel_count)
           end_time = datetime.now()
           processed_time = end_time - start_time
@@ -334,7 +345,8 @@ def processing_source(uri, userName, password, database, model, file_name, pages
       if bool(is_cancelled_status) == True:
         logging.info(f'Is_cancelled True at the end extraction')
         job_status = 'Cancelled'
-      logging.info(f'Job Status at the end : {job_status}')
+      #logging.info(f'Job Status at the end : {job_status}')
+      logging.info(f'目前工作状态 : {job_status}')
       end_time = datetime.now()
       processed_time = end_time - start_time
       obj_source_node = sourceNode()
@@ -343,8 +355,10 @@ def processing_source(uri, userName, password, database, model, file_name, pages
       obj_source_node.processing_time = processed_time
 
       graphDb_data_Access.update_source_node(obj_source_node)
-      logging.info('Updated the nodeCount and relCount properties in Document node')
-      logging.info(f'file:{file_name} extraction has been completed')
+      #logging.info('Updated the nodeCount and relCount properties in Document node')
+      logging.info('文档节点:节点和关系已上传')
+      #logging.info(f'file:{file_name} extraction has been completed')
+      logging.info(f'文件:{file_name} 解析已完成')
 
 
       # merged_file_path have value only when file uploaded from local
@@ -373,6 +387,8 @@ def processing_source(uri, userName, password, database, model, file_name, pages
     logging.error(error_message)
     raise Exception(error_message)
 
+
+#文档向量
 def processing_chunks(chunkId_chunkDoc_list,graph,uri, userName, password, database,file_name,model,allowedNodes,allowedRelationship, node_count, rel_count):
   #create vector index and update chunk node with embedding
   if graph is not None:
@@ -382,8 +398,10 @@ def processing_chunks(chunkId_chunkDoc_list,graph,uri, userName, password, datab
     graph = create_graph_database_connection(uri, userName, password, database)
       
   update_embedding_create_vector_index( graph, chunkId_chunkDoc_list, file_name)
-  logging.info("Get graph document list from models")
+  #logging.info("Get graph document list from models")
+  logging.info("图谱文档:从模型获取开始")
   graph_documents =  get_graph_from_llm(model, chunkId_chunkDoc_list, allowedNodes, allowedRelationship)
+  logging.info("图谱文档:从模型获取结束")
   cleaned_graph_documents = handle_backticks_nodes_relationship_id_type(graph_documents)
   save_graphDocuments_in_neo4j(graph, cleaned_graph_documents)
   chunks_and_graphDocuments_list = get_chunk_and_graphDocument(cleaned_graph_documents, chunkId_chunkDoc_list)

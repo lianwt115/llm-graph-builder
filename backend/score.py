@@ -115,6 +115,10 @@ async def create_source_knowledge_graph_url(
     finally:
         gc.collect()
 
+
+
+
+#程序执行流程:1本地文件上传后开始执行 ----------------11111111111111111111111-------------
 @app.post("/extract")
 async def extract_knowledge_graph_from_file(
     uri=Form(),
@@ -159,7 +163,8 @@ async def extract_knowledge_graph_from_file(
         
         if source_type == 'local file':
             merged_file_path = os.path.join(MERGED_DIR,file_name)
-            logging.info(f'File path:{merged_file_path}')
+            #logging.info(f'File path:{merged_file_path}')
+            logging.info(f'开始解析文档---文件路径:{merged_file_path}')
             result = await asyncio.to_thread(
                 extract_graph_from_file_local_file, uri, userName, password, database, model, merged_file_path, file_name, allowedNodes, allowedRelationship, retry_condition)
 

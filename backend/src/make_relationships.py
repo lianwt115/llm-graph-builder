@@ -35,7 +35,7 @@ def merge_relationship_between_chunk_and_entites(graph: Neo4jGraph, graph_docume
                 """
         graph.query(unwind_query, params={"batch_data": batch_data})
 
-    
+#更新向量索引
 def update_embedding_create_vector_index(graph, chunkId_chunkDoc_list, file_name):
     #create embedding
     isEmbedding = os.getenv('IS_EMBEDDING')

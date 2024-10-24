@@ -20,16 +20,17 @@ from langchain_core.documents import Document
 
 def load_document_content(file_path):
     if Path(file_path).suffix.lower() == '.pdf':
-        print("in if")
+        logging.info(f'是否为PDF:是')
         return PyMuPDFLoader(file_path)
     else:
-        print("in else")
+        logging.info(f'是否为PDF:否')
         return UnstructuredFileLoader(file_path, mode="elements",autodetect_encoding=True)
-    
+#程序执行流程:3文档分页和分段 ----------------222222222222222222222-------------
 def get_documents_from_file_by_path(file_path,file_name):
     file_path = Path(file_path)
     if file_path.exists():
-        logging.info(f'file {file_name} processing')
+        #logging.info(f'file {file_name} processing')
+        logging.info(f'正在解析: {file_name}')
         # loader = PyPDFLoader(str(file_path))
         file_extension = file_path.suffix.lower()
         try:

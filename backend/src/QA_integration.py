@@ -14,6 +14,8 @@ from langchain_google_vertexai import HarmBlockThreshold, HarmCategory
 import logging
 from langchain_community.chat_message_histories import Neo4jChatMessageHistory
 from langchain_community.embeddings.sentence_transformer import SentenceTransformerEmbeddings
+from openai import base_url
+
 from src.shared.common_fn import load_embedding_model
 import re
 from typing import Any
@@ -25,6 +27,7 @@ load_dotenv()
 openai_api_key = os.environ.get('OPENAI_API_KEY')
 
 EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL')
+logging.info(f"加载向量模型: {EMBEDDING_MODEL}")
 EMBEDDING_FUNCTION , _ = load_embedding_model(EMBEDDING_MODEL)
 CHAT_MAX_TOKENS = 1000
 
@@ -56,6 +59,7 @@ as text, entities
 RETURN text, score, {source: COALESCE(CASE WHEN d.url CONTAINS "None" THEN d.fileName ELSE d.url END, d.fileName), entities:entities} as metadata
 """
 
+#提示词，中文化
 FINAL_PROMPT = """
 You are an AI-powered question-answering agent tasked with providing accurate and direct responses to user queries. Utilize information from the chat history, current user input, and Relevant Information effectively.
 
@@ -74,6 +78,25 @@ Instructions:
 Ensure that answers are straightforward and context-aware, focusing on being relevant and concise.
 """
 
+FINAL_PROMPT_CHINESE = """
+你是一个为用户提供精准查询和直接响应的人工智能问答机器人。使用历史对话,用户输入,及其他有效信息.
+
+回答要求:
+-除非有要求，否则无需标题即可对用户的查询提供简洁直接的答案
+-基于历史总结，确认和使用当前对话
+-适当地使用上文知识，但避免在后续的回复中包含上文，除非问答重新开始或暂停。
+-对于非一般性问题，尽量使用聊天记录和相关信息提供答案。
+-明确说明答案是否未知；避免猜测。
+
+指令：
+-优先考虑直接回答用户输入:{问题}。
+-使用聊天历史摘要：{Chat_Summary}提供上下文感知的响应。
+-请参阅相关信息:｛vector_result｝，仅当它与查询直接相关时。
+-在您的回复中使用相关信息时，请务必引用来源[来源:{来源}]。源必须以[源:源1，源2]的格式打印在最后。应删除重复的源。
+-确保答案直截了当，符合上下文，注重相关性和简洁性。
+"""
+
+
 def get_llm(model: str,max_tokens=1000) -> Any:
     """Retrieve the specified language model based on the model name."""
 
@@ -88,8 +111,9 @@ def get_llm(model: str,max_tokens=1000) -> Any:
          }
     if model in model_versions:
         model_version = model_versions[model]
-        logging.info(f"Chat Model: {model}, Model Version: {model_version}")
-        
+        #logging.info(f"Chat Model: {model}, Model Version: {model_version}")
+        logging.info(f"对话模型初始化: {model}, 版本信息: {model_version}")
+
         if "Gemini" in model:
             llm = ChatVertexAI(
                 model_name=model_version,
@@ -105,12 +129,14 @@ def get_llm(model: str,max_tokens=1000) -> Any:
                 }
             )
         else:
+            #中文和base_url 需要添加
             llm = ChatOpenAI(model=model_version, temperature=0,max_tokens=max_tokens)
 
         return llm,model_version
 
     else:
-        logging.error(f"Unsupported model: {model}")
+        #logging.error(f"Unsupported model: {model}")
+        logging.error(f"不支持的模型: {model}")
         return None,None
 
 def vector_embed_results(qa,question):
